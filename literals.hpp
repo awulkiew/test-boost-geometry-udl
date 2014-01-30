@@ -12,53 +12,59 @@
 
 #ifndef BOOST_NO_CXX11_USER_DEFINED_LITERALS
 
-namespace boost { namespace geometry { namespace literals {
+namespace boost { namespace geometry {
 
-namespace cart2f {
-
-namespace detail
-{
+namespace detail { namespace wkt {
 
 struct prefix_empty
 {
-	static inline const char* apply() { return ""; }
+    static inline const char* apply() { return ""; }
 };
 
-}
-
-model::point<float, 2, cs::cartesian> operator"" _pt (const char * c_str, unsigned long n)
+template <typename Geometry, template<typename> class Parser>
+struct unprefixed_geometry_parser
 {
-	typedef model::point<float, 2, cs::cartesian> point;
+    // warning! geometry must be empty!
+    static inline void apply(std::string const& wkt, Geometry& geometry)
+    {
+        typedef boost::tokenizer<boost::char_separator<char> > tokenizer;
+
+        tokenizer tokens(wkt, boost::char_separator<char>(" ", ",()"));
+        tokenizer::iterator it = tokens.begin();
+        tokenizer::iterator end = tokens.end();
+
+        Parser<Geometry>::apply(it, end, wkt, geometry);
+        check_end(it, end, wkt);
+    }
+};
+
+}} // namespace detail::wkt
+
+namespace literals {
+
+namespace cart2d {
+
+model::point<double, 2, cs::cartesian> operator"" _pt (const char * c_str, unsigned long n)
+{
+    typedef model::point<double, 2, cs::cartesian> point;
 
 	std::string str(c_str, n);
 
-	/*tokenizer tokens(str, boost::char_separator<char>(" ", ",()"));
-	tokenizer::iterator it = tokens.begin();
-	tokenizer::iterator end = tokens.end();
-	
-	point result;
+    point result;
 
-	detail::wkt::handle_open_parenthesis(it, end, str);
-	detail::wkt::parsing_assigner<point, 0, dimension<point>::value>::apply(it, end, result, str);
-	detail::wkt::handle_close_parenthesis(it, end, str);
-
-	detail::wkt::check_end(it, end, str);*/
-
-	point result;
-
-	detail::wkt::geometry_parser<point, detail::wkt::point_parser, detail::prefix_empty>
-		::apply(str, result);
+    detail::wkt::unprefixed_geometry_parser<point, detail::wkt::point_parser>::apply(str, result);
 
 	return result;
 }
 
-model::box< model::point<float, 2, cs::cartesian> > operator"" _box (const char * c_str, unsigned long n)
+model::box< model::point<double, 2, cs::cartesian> > operator"" _box (const char * c_str, unsigned long n)
 {
-	typedef model::point<float, 2, cs::cartesian> point;
+    typedef model::point<double, 2, cs::cartesian> point;
 	typedef model::box<point> box;
 	
 	std::string str(c_str, n);
 
+    typedef boost::tokenizer<boost::char_separator<char> > tokenizer;
 	tokenizer tokens(str, boost::char_separator<char>(" ", ",()"));
 	tokenizer::iterator it = tokens.begin();
 	tokenizer::iterator end = tokens.end();
@@ -82,7 +88,7 @@ model::box< model::point<float, 2, cs::cartesian> > operator"" _box (const char 
 	}
 	else
 	{
-		throw read_wkt_exception("Box should have 2,4 or 5 points", wkt);
+        throw read_wkt_exception("Box should have 2,4 or 5 points", str);
 	}
 
 	box result;
@@ -93,10 +99,55 @@ model::box< model::point<float, 2, cs::cartesian> > operator"" _box (const char 
 	return result;
 }
 
+model::linestring< model::point<double, 2, cs::cartesian> > operator"" _ls (const char * c_str, unsigned long n)
+{
+    typedef model::point<double, 2, cs::cartesian> point;
+    typedef model::linestring<point> linestring;
+
+    std::string str(c_str, n);
+
+    linestring result;
+
+    detail::wkt::unprefixed_geometry_parser<linestring, detail::wkt::linestring_parser>::apply(str, result);
+
+    return result;
+}
+
+model::ring< model::point<double, 2, cs::cartesian> > operator"" _ring (const char * c_str, unsigned long n)
+{
+    typedef model::point<double, 2, cs::cartesian> point;
+    typedef model::ring<point> ring;
+
+    std::string str(c_str, n);
+
+    ring result;
+
+    // NOTE! simplified ring representation could be used - in that case linestring_parser could be used
+    detail::wkt::unprefixed_geometry_parser<ring, detail::wkt::ring_parser>::apply(str, result);
+
+    return result;
+}
+
+model::polygon< model::point<double, 2, cs::cartesian> > operator"" _poly (const char * c_str, unsigned long n)
+{
+    typedef model::point<double, 2, cs::cartesian> point;
+    typedef model::polygon<point> polygon;
+
+    std::string str(c_str, n);
+
+    polygon result;
+
+    detail::wkt::unprefixed_geometry_parser<polygon, detail::wkt::polygon_parser>::apply(str, result);
+
+    return result;
+}
+
 } // namespace cart2f
 
-#endif // BOOST_NO_CXX11_USER_DEFINED_LITERALS
+} // namespace literals
 
-}}} // namespace boost::geometry::literals
+}} // namespace boost::geometry
+
+#endif // BOOST_NO_CXX11_USER_DEFINED_LITERALS
 
 #endif // BOOST_GEOEMTRY_LITERALS_HPP
